@@ -4,9 +4,10 @@ _Last updated: 2026-06-20_
 
 This privacy policy applies to the **feris** version of the Voice Changer (an
 updated fork of [w-okada/voice-changer](https://github.com/w-okada/voice-changer)
-via [Deiteris/voice-changer](https://github.com/deiteris/voice-changer)). In this
-document, "the software" or "the tool" means this application, and "feris" means
-the maintainer of this fork.
+via [Deiteris/voice-changer](https://github.com/deiteris/voice-changer); the
+quality-of-life features and this policy were developed by feris with the help
+of the AI assistant **Claude (Anthropic)**). In this document, "the software" or
+"the tool" means this application, and "feris" means the maintainer of this fork.
 
 ## The short version
 
@@ -87,6 +88,31 @@ This software is open source. You can:
   downloaded — voice conversion will keep working fully offline, and
 - watch your network traffic to confirm audio is only sent to your own
   server/LAN.
+
+## Security and your local network (your responsibility)
+
+Because the software runs on your own device(s), **securing those devices and
+your local network is your responsibility.** In particular, if you use two-PC
+("host") mode, you are responsible for who can reach the host on your network
+(for example, by using a trusted private network and an appropriate firewall).
+feris does not operate, monitor, or secure your devices or network and is not
+responsible for unauthorized access that results from your configuration.
+
+## Third-party services
+
+Any downloads or optional features that contact third parties (such as Hugging
+Face, GitHub, or Amazon, described above) are governed by **those parties' own
+privacy policies**, which feris does not control and is not responsible for.
+feris makes no representations about how those third parties handle data.
+
+## No warranty regarding privacy
+
+The software is provided "as is," and while it is designed to collect nothing,
+feris does not warrant that your own device, network, or third-party services
+are secure or private. To the maximum extent permitted by law, feris is not
+liable for any loss or harm arising from your use of the software. See
+[`TERMS.md`](./TERMS.md) for the full disclaimer of warranties and limitation of
+liability.
 
 ## Changes to this policy
 
