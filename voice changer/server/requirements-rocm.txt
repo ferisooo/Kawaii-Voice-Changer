@@ -1,0 +1,16 @@
+# # apt-get update
+# # apt-get install -y emacs mlocate wget git curl gcc g++ make unzip
+# # wget https://repo.anaconda.com/archive/Anaconda3-2022.10-Linux-x86_64.sh
+# # bash Anaconda3-2022.10-Linux-x86_64.sh
+
+--extra-index-url https://download.pytorch.org/whl/rocm6.2
+torch
+torchaudio
+faiss-cpu
+
+onnxscript
+onnxsim
+onnxruntime-rocm @ https://repo.radeon.com/rocm/manylinux/rocm-rel-6.2.3/onnxruntime_rocm-1.18.0-cp310-cp310-linux_x86_64.whl
+torchcrepe
+torchfcpe
+safetensors

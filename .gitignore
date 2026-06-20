@@ -1,3 +1,5 @@
-# The project source is committed as the "voice changer.zip" artifact.
-# The extracted working directory is intentionally not tracked.
-/voice changer/
+# The voice changer project source is tracked directly under "voice changer/".
+# (Its own "voice changer/.gitignore" excludes venv, model weights, caches, etc.)
+# These are runtime artifacts created only when you actually run the launchers:
+/voice changer/chrome-voicechanger-profile/
+/voice changer/server/venv/
