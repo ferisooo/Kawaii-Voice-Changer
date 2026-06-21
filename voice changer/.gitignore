@@ -74,3 +74,10 @@ start_trainer.sh
 
 # venv
 venv/
+
+# Keep the prebuilt web client in the repo so the app runs straight from a
+# source download / the updater (the server serves client/demo/dist at "/").
+# The generic "dist" rule above would otherwise drop it. Models stay ignored.
+!client/demo/dist/
+!client/demo/dist/**
+client/demo/dist/models/
