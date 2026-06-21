@@ -17,7 +17,10 @@ setlocal
 cd /d "%~dp0"
 
 set "REPO=https://github.com/ferisooo/Kawaii-Voice-Changer.git"
-set "TMP=%TEMP%\vc_update_repo"
+REM Staging folder for the download. Do NOT name this TMP/TEMP: those are
+REM reserved variables that git and other tools use for their own scratch
+REM files, and clobbering them here breaks the clone on some systems.
+set "STAGE=%TEMP%\vc_update_repo"
 
 REM --- 1. Make sure Git is installed -------------------------
 git --version >nul 2>&1
@@ -30,12 +33,15 @@ echo ============================================================
 echo.
 
 REM --- 2. Download the latest repo (just the small zip) ------
-if exist "%TMP%" rmdir /s /q "%TMP%"
+if exist "%STAGE%" rmdir /s /q "%STAGE%"
 echo Downloading latest version...
-git clone --depth 1 "%REPO%" "%TMP%"
+git clone --depth 1 "%REPO%" "%STAGE%"
 if errorlevel 1 goto :clone_failed
 
-if not exist "%TMP%\voice changer\nul" goto :missing_files
+REM Use a real file as the sentinel. The old "dir\nul" directory-existence
+REM trick is unreliable on modern Windows and could report "missing files"
+REM even when the download was fine.
+if not exist "%STAGE%\voice changer\start_voice_changer.bat" goto :missing_files
 
 REM --- 3. Copy the new program files over this folder --------
 REM    robocopy only copies files that are IN the repo, and never
@@ -46,11 +52,11 @@ REM    left as update_from_main.NEW.bat so future updater fixes can
 REM    be adopted by renaming it over this one.
 echo.
 echo Applying update...
-robocopy "%TMP%\voice changer" "%~dp0." /E /XF "update_from_main.bat" >nul
+robocopy "%STAGE%\voice changer" "%~dp0." /E /XF "update_from_main.bat" >nul
 if errorlevel 8 goto :extract_failed
-copy /y "%TMP%\voice changer\update_from_main.bat" "%~dp0update_from_main.NEW.bat" >nul
+copy /y "%STAGE%\voice changer\update_from_main.bat" "%~dp0update_from_main.NEW.bat" >nul
 
-rmdir /s /q "%TMP%"
+rmdir /s /q "%STAGE%"
 
 echo.
 echo ============================================================
@@ -82,14 +88,14 @@ echo.
 echo [ERROR] Could not download the update.
 echo   * If a GitHub login appeared, make sure you completed it.
 echo   * Check your internet connection, then try again.
-if exist "%TMP%" rmdir /s /q "%TMP%"
+if exist "%STAGE%" rmdir /s /q "%STAGE%"
 pause
 goto :end
 
 :missing_files
 echo.
 echo [ERROR] The download did not contain the expected files.
-if exist "%TMP%" rmdir /s /q "%TMP%"
+if exist "%STAGE%" rmdir /s /q "%STAGE%"
 pause
 goto :end
 
@@ -98,7 +104,7 @@ echo.
 echo [ERROR] Could not copy the new files into place.
 echo   This needs the built-in 'robocopy' command (Windows 10/11).
 echo   Make sure the voice changer is CLOSED, then try again.
-if exist "%TMP%" rmdir /s /q "%TMP%"
+if exist "%STAGE%" rmdir /s /q "%STAGE%"
 pause
 goto :end
 
