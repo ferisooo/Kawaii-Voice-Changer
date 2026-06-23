@@ -137,7 +137,7 @@ export class VoiceChangerClient {
                 } else {
                     this.currentMediaStream = await navigator.mediaDevices.getUserMedia({
                         audio: {
-                            deviceId: this.setting.audioInput,
+                            deviceId: { exact: this.setting.audioInput },
                             channelCount: 1,
                             sampleRate: this.ctx.sampleRate,
                             sampleSize: 16,
