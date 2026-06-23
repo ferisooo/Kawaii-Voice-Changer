@@ -16,7 +16,7 @@ REM ============================================================
 setlocal
 cd /d "%~dp0"
 
-set "REPO=https://github.com/ferisooo/Kawaii-Voice-Changer.git"
+set "REPO=https://github.com/ferisooo/voice-changer.git"
 REM Staging folder for the download. Do NOT name this TMP/TEMP: those are
 REM reserved variables that git and other tools use for their own scratch
 REM files, and clobbering them here breaks the clone on some systems.

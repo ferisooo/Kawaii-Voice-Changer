@@ -54,6 +54,9 @@ module.exports = {
         new CopyPlugin({
             patterns: [{ from: "public/favicon.ico", to: "favicon.ico" }],
         }),
+        new CopyPlugin({
+            patterns: [{ from: "public/autopitch.js", to: "autopitch.js" }],
+        }),
 
         // new CopyPlugin({
         //     patterns: [{ from: "./node_modules/@dannadori/voice-changer-js/dist/ort-wasm-simd.wasm", to: "ort-wasm-simd.wasm" }],
