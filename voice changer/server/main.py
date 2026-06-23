@@ -34,6 +34,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+def _quiet_asyncio_exception_handler(loop, context):
+    # The audio client (browser socket.io) routinely drops its connection on
+    # reconnects and whenever settings change. On Windows' Proactor event loop
+    # this surfaces as a ConnectionResetError ([WinError 10054]) raised inside
+    # the transport's connection_lost cleanup, which asyncio logs as ERROR even
+    # though there is nothing to handle. Swallow that specific case so it does
+    # not bury real errors in the log; defer everything else to the default.
+    exception = context.get("exception")
+    if isinstance(exception, ConnectionResetError):
+        logger.debug("Ignoring benign connection reset: %s", context.get("message"))
+        return
+    loop.default_exception_handler(context)
+
 def setupArgParser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--log-level", type=str, default="error", help="Log level info|critical|error.")
@@ -81,6 +94,8 @@ async def runServer(host: str, port: int, launch_browser: bool = False, log_leve
     await server.serve()
 
 async def main(args):
+    asyncio.get_running_loop().set_exception_handler(_quiet_asyncio_exception_handler)
+
     logger.debug(args)
 
     logger.info(f"Python: {sys.version}")

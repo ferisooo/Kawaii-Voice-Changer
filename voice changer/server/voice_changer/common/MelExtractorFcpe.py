@@ -155,10 +155,12 @@ class MelModule(torch.nn.Module):
 
         y = y.squeeze(-1)
 
-        if torch.min(y) < -1.:
-            logger.error(f'min value is {torch.min(y)}')
-        if torch.max(y) > 1.:
-            logger.error(f'max value is {torch.max(y)}')
+        # NOTE: These were debug range-checks (warn if the waveform exceeds
+        # [-1, 1]). On GPU, torch.min/torch.max compared against a Python float
+        # force a device->host sync every frame, which stalls the real-time
+        # pipeline and shows up as intermittent crackle/stutter (most visible
+        # with FCPE). The check never meaningfully fired in practice, so it is
+        # removed to keep the per-frame path sync-free.
 
         pad_left = (self.win_size - self.hop_length) // 2
         pad_right = max((self.win_size - self.hop_length + 1) // 2, self.win_size - y.size(-1) - pad_left)
