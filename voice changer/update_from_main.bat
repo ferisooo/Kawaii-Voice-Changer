@@ -35,7 +35,7 @@ echo.
 REM --- 2. Download the latest repo (just the small zip) ------
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
 echo Downloading latest version...
-git clone --depth 1 "%REPO%" "%STAGE%"
+git clone --depth 1 --branch main "%REPO%" "%STAGE%"
 if errorlevel 1 goto :clone_failed
 
 REM Use a real file as the sentinel. The old "dir\nul" directory-existence
