@@ -352,6 +352,9 @@ class RVCr2(VoiceChangerModel):
             dtype=torch.float32
         ).to(self.device_manager.device)
 
+        # Apply the configured RMVPE voiced threshold to the fresh pipeline.
+        self.pipeline.set_f0_threshold(self.settings.f0Threshold)
+
         logger.info("Initialized.")
 
     def set_sampling_rate(self, input_sample_rate: int, output_sample_rate: int):
@@ -375,6 +378,8 @@ class RVCr2(VoiceChangerModel):
             self.settings.f0Detector, self.settings.gpu
         )
         self.pipeline.setPitchExtractor(pitchExtractor)
+        # A freshly-loaded extractor defaults to 0.05; restore the user's value.
+        self.pipeline.set_f0_threshold(self.settings.f0Threshold)
 
     def update_settings(self, key: str, val, old_val):
         if key in {"gpu", "forceFp32", "disableJit"}:
@@ -385,6 +390,12 @@ class RVCr2(VoiceChangerModel):
             self.initialize()
         elif key == "f0Detector" and self.pipeline is not None:
             self.change_pitch_extractor()
+        elif key == 'f0Fp32':
+            # The detector's compute precision is fixed at construction, so it
+            # must be rebuilt. The device flag is updated by the manager first.
+            self.initialize(True)
+        elif key == 'f0Threshold' and self.pipeline is not None:
+            self.pipeline.set_f0_threshold(self.settings.f0Threshold)
         elif key == 'silentThreshold':
             # Convert dB to RMS
             self.inputSensitivity = 10 ** (self.settings.silentThreshold / 20)
@@ -441,12 +452,16 @@ class RVCr2(VoiceChangerModel):
         self.return_length = self.convert_feature_size_16k - self.skip_head
         self.silence_front = extra_frame_16k - (WINDOW_SIZE * 5) if self.settings.silenceFront else 0
 
+        # Audio buffers are kept in fp32 regardless of inference precision: it
+        # makes the volume/silence-gate measurement accurate and preserves
+        # quiet-speech detail in the rolling history. They are cast to the
+        # model dtype downstream (pitch detector and embedder handle this).
         # Audio buffer to measure volume between chunks
         audio_buffer_size = block_frame_16k + crossfade_frame_16k
-        self.audio_buffer = torch.zeros(audio_buffer_size, dtype=self.dtype, device=self.device_manager.device)
+        self.audio_buffer = torch.zeros(audio_buffer_size, dtype=torch.float32, device=self.device_manager.device)
 
         # Audio buffer for conversion without silence
-        self.convert_buffer = torch.zeros(convert_size_16k, dtype=self.dtype, device=self.device_manager.device)
+        self.convert_buffer = torch.zeros(convert_size_16k, dtype=torch.float32, device=self.device_manager.device)
         # Additional +1 is to compensate for pitch extraction algorithm
         # that can output additional feature.
         self.pitch_buffer = torch.zeros(self.convert_feature_size_16k + 1, dtype=torch.int64, device=self.device_manager.device)
@@ -495,6 +510,7 @@ class RVCr2(VoiceChangerModel):
             convert_feature_size_16k,
             self.settings.protect,
             self.settings.maxPitch,
+            bool(self.settings.f0Smoothing),
         )
 
         # TODO: Need to handle resampling for individual files
@@ -507,11 +523,11 @@ class RVCr2(VoiceChangerModel):
         if self.pipeline is None:
             raise PipelineNotInitializedException()
 
-        # Input audio is always float32
+        # Input audio is always float32. The audio buffers are fp32 too (see
+        # realloc), so no half-cast here -- precision is kept until the pitch
+        # detector and embedder cast to their own compute dtype.
         audio_in_t = torch.as_tensor(audio_in, dtype=torch.float32, device=self.device_manager.device)
         audio_in_16k = self.resampler_in(audio_in_t)
-        if self.is_half:
-            audio_in_16k = audio_in_16k.half()
 
         circular_write(audio_in_16k, self.audio_buffer)
 
@@ -557,6 +573,7 @@ class RVCr2(VoiceChangerModel):
                 self.return_length,
                 self.settings.protect,
                 self.settings.maxPitch,
+                bool(self.settings.f0Smoothing),
             )
             return None, vol
 
@@ -578,6 +595,7 @@ class RVCr2(VoiceChangerModel):
             self.return_length,
             self.settings.protect,
             self.settings.maxPitch,
+            bool(self.settings.f0Smoothing),
         )
 
         # Update the auto-pitch controller from this (voiced) frame.
