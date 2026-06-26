@@ -251,20 +251,6 @@
     asC.wrap.appendChild(asBtn); asC.wrap.appendChild(asRead);
     add(asC.wrap);
 
-    // === Row 6: Pitch quality controls ==================================
-    var hqC = cell('Pitch HQ', 'Runs pitch detection in full precision (fp32) even on fast/half mode. Steadier pitch, fewer octave cracks, tiny cost. Recommended ON.');
-    var hqBtn = makeToggle(true);
-    hqBtn.onclick = function () { hqBtn.setOn(!hqBtn._on); post('f0Fp32', hqBtn._on ? 1 : 0); };
-    hqC.wrap.appendChild(hqBtn); add(hqC.wrap);
-
-    var smC = cell('Pitch smooth', 'Removes single-frame pitch spikes / octave cracks. Keeps natural intonation. Recommended ON.');
-    var smBtn = makeToggle(true);
-    smBtn.onclick = function () { smBtn.setOn(!smBtn._on); post('f0Smoothing', smBtn._on ? 1 : 0); };
-    smC.wrap.appendChild(smBtn); add(smC.wrap);
-
-    var thSc = sliderCell('Voice gate', 'How sure the detector must be that a sound is your voice (RMVPE). Higher = rejects more noise on noisy mics; lower = catches softer voicing.', 0.01, 0.30, 0.01, 0.05,
-      function (v) { return Number(v).toFixed(2); }, 'f0Threshold');
-
     document.body.appendChild(panel);
 
     // --- Collapse / expand ---
@@ -291,9 +277,6 @@
       if (typeof info.deEss !== 'undefined') { dzSc.slider.value = info.deEss; dzSc.show(); }
       if (typeof info.outputComp !== 'undefined') { lvSc.slider.value = info.outputComp; lvSc.show(); }
       if (typeof info.formantShift !== 'undefined') { fmSc.slider.value = info.formantShift; fmSc.show(); }
-      if (typeof info.f0Fp32 !== 'undefined') hqBtn.setOn(Number(info.f0Fp32) === 1);
-      if (typeof info.f0Smoothing !== 'undefined') smBtn.setOn(Number(info.f0Smoothing) === 1);
-      if (typeof info.f0Threshold !== 'undefined') { thSc.slider.value = info.f0Threshold; thSc.show(); }
     }).catch(function () {});
     fetch('/calibrate_status').then(function (r) { return r.json(); }).then(calLabel).catch(function () {});
 

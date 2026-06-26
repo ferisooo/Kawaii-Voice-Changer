@@ -325,19 +325,6 @@ class VoiceChangerSettings:
     _protect: float = 0.5
     _silenceFront: int = 1
 
-    # Pitch-detection accuracy options:
-    # f0Fp32 (1=on): run the pitch detector (RMVPE/FCPE/CREPE) in full fp32 even
-    #   when inference is fp16. Pitch errors are very audible (octave cracks,
-    #   warble); the detector is cheap, so fp32 noticeably steadies pitch for a
-    #   negligible cost. On by default.
-    # f0Smoothing (1=on): guard the detected f0 against single-frame spikes /
-    #   octave cracks with a short voiced-only median filter.
-    # f0Threshold: RMVPE voiced/unvoiced confidence cutoff (0.01..0.3). Higher
-    #   rejects more borderline frames (good for noisy mics); lower keeps more.
-    _f0Fp32: int = 1
-    _f0Smoothing: int = 1
-    _f0Threshold: float = 0.05
-
     # Auto Pitch (experimental): when enabled, the transpose ("tran") is
     # automatically nudged so the speaker's voice stays in the target model's
     # comfortable pitch range, instead of being stuck at a fixed value.
@@ -452,30 +439,6 @@ class VoiceChangerSettings:
     @silenceFront.setter
     def silenceFront(self, enable: str):
         self._silenceFront = int(enable)
-
-    @property
-    def f0Fp32(self):
-        return self._f0Fp32
-
-    @f0Fp32.setter
-    def f0Fp32(self, enable: str):
-        self._f0Fp32 = int(enable)
-
-    @property
-    def f0Smoothing(self):
-        return self._f0Smoothing
-
-    @f0Smoothing.setter
-    def f0Smoothing(self, enable: str):
-        self._f0Smoothing = int(enable)
-
-    @property
-    def f0Threshold(self):
-        return self._f0Threshold
-
-    @f0Threshold.setter
-    def f0Threshold(self, val: str):
-        self._f0Threshold = float(val)
 
     @property
     def autoPitch(self):
