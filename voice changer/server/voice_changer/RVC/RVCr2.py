@@ -452,17 +452,12 @@ class RVCr2(VoiceChangerModel):
         self.return_length = self.convert_feature_size_16k - self.skip_head
         self.silence_front = extra_frame_16k - (WINDOW_SIZE * 5) if self.settings.silenceFront else 0
 
-        # Buffer dtype: stock build uses the model dtype. With hqBuffers (opt-in)
-        # we keep them in fp32 so the volume/silence-gate measurement is accurate
-        # and quiet-speech detail is preserved; they're cast to the model dtype
-        # downstream (the pitch detector and embedder handle that).
-        buf_dtype = torch.float32 if self.settings.hqBuffers else self.dtype
         # Audio buffer to measure volume between chunks
         audio_buffer_size = block_frame_16k + crossfade_frame_16k
-        self.audio_buffer = torch.zeros(audio_buffer_size, dtype=buf_dtype, device=self.device_manager.device)
+        self.audio_buffer = torch.zeros(audio_buffer_size, dtype=self.dtype, device=self.device_manager.device)
 
         # Audio buffer for conversion without silence
-        self.convert_buffer = torch.zeros(convert_size_16k, dtype=buf_dtype, device=self.device_manager.device)
+        self.convert_buffer = torch.zeros(convert_size_16k, dtype=self.dtype, device=self.device_manager.device)
         # Additional +1 is to compensate for pitch extraction algorithm
         # that can output additional feature.
         self.pitch_buffer = torch.zeros(self.convert_feature_size_16k + 1, dtype=torch.int64, device=self.device_manager.device)
@@ -524,11 +519,11 @@ class RVCr2(VoiceChangerModel):
         if self.pipeline is None:
             raise PipelineNotInitializedException()
 
-        # Input audio is always float32; match it to the buffer dtype (half on
-        # the stock path, fp32 when hqBuffers is on). The pitch detector and
-        # embedder cast to their own compute dtype downstream.
+        # Input audio is always float32
         audio_in_t = torch.as_tensor(audio_in, dtype=torch.float32, device=self.device_manager.device)
-        audio_in_16k = self.resampler_in(audio_in_t).to(self.audio_buffer.dtype)
+        audio_in_16k = self.resampler_in(audio_in_t)
+        if self.is_half:
+            audio_in_16k = audio_in_16k.half()
 
         circular_write(audio_in_16k, self.audio_buffer)
 

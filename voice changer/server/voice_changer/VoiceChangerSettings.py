@@ -325,23 +325,17 @@ class VoiceChangerSettings:
     _protect: float = 0.5
     _silenceFront: int = 1
 
-    # --- Pitch / audio accuracy options (ALL DEFAULT OFF) ----------------
-    # These are independent, opt-in experiments. With all of them off the
-    # pipeline behaves exactly like the stock build. Each can be toggled on
-    # its own so a regression can be isolated to a single option.
+    # --- Pitch accuracy options (opt-in, default OFF) --------------------
+    # Independent switches; with both off the pipeline matches the stock build.
     #
     # f0Fp32 (1=on): run the pitch detector (RMVPE) in full fp32 even when
-    #   inference is fp16. Steadier pitch in theory, but forces a code path
-    #   fp16 GPUs don't normally use -- hence opt-in.
+    #   inference is fp16. Steadier pitch for a negligible cost.
     # f0Smoothing (1=on): voiced-only median guard on f0 (kills single-frame
     #   octave cracks).
-    # hqBuffers (1=on): keep the 16k audio buffers in fp32 (accurate volume /
-    #   quiet detail) instead of the model dtype.
     # f0Threshold: RMVPE voiced/unvoiced confidence cutoff (0.01..0.3). 0.05
     #   is the stock value, so leaving it is a no-op.
     _f0Fp32: int = 0
     _f0Smoothing: int = 0
-    _hqBuffers: int = 0
     _f0Threshold: float = 0.05
 
     # Auto Pitch (experimental): when enabled, the transpose ("tran") is
@@ -474,14 +468,6 @@ class VoiceChangerSettings:
     @f0Smoothing.setter
     def f0Smoothing(self, enable: str):
         self._f0Smoothing = int(enable)
-
-    @property
-    def hqBuffers(self):
-        return self._hqBuffers
-
-    @hqBuffers.setter
-    def hqBuffers(self, enable: str):
-        self._hqBuffers = int(enable)
 
     @property
     def f0Threshold(self):
