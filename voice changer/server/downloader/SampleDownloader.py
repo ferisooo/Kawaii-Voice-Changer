@@ -157,6 +157,10 @@ async def _downloadSamples(samples: list[ModelSamples], sampleModelIds: list[Tup
     logger.info("Generating metadata...")
     for targetSlotIndex in slotIndex:
         slotInfo = modelSlotManager.get_slot_info(targetSlotIndex)
+        # Slots skipped above (unknown sample id / unsupported type) have no
+        # modelFile; touching them here would abort the whole metadata pass.
+        if not getattr(slotInfo, "modelFile", None):
+            continue
         modelPath = os.path.join(model_dir, str(slotInfo.slotIndex), os.path.basename(slotInfo.modelFile))
         if slotInfo.voiceChangerType == "RVC":
             if slotInfo.isONNX:

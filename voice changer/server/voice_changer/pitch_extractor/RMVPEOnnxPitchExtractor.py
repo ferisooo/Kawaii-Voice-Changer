@@ -28,9 +28,6 @@ class RMVPEOnnxPitchExtractor(PitchExtractor):
 
         self.threshold = np.array(0.05, dtype=self.fp_dtype_np)
 
-    def set_threshold(self, value: float):
-        self.threshold = np.array(value, dtype=self.fp_dtype_np)
-
         so = onnxruntime.SessionOptions()
         # so.log_severity_level = 3
         # so.enable_profiling = True
@@ -38,6 +35,9 @@ class RMVPEOnnxPitchExtractor(PitchExtractor):
             self.is_half, 128, 16000, 1024, 160, mel_fmin=30, mel_fmax=8000
         ).to(device_manager.device)
         self.onnx_session = onnxruntime.InferenceSession(model.SerializeToString(), sess_options=so, providers=onnxProviders, provider_options=onnxProviderOptions)
+
+    def set_threshold(self, value: float):
+        self.threshold = np.array(value, dtype=self.fp_dtype_np)
 
     def extract(
         self,

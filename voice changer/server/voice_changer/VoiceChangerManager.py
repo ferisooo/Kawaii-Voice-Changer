@@ -1,7 +1,9 @@
+import asyncio
 import json
 import os
 import sys
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from downloader.SampleDownloader import downloadSample, getSampleInfos
 import logging
@@ -27,6 +29,16 @@ from voice_changer.RVC.RVCr2 import RVCr2
 from voice_changer.RVC.RVCModelSlotGenerator import RVCModelSlotGenerator  # 起動時にインポートするとパラメータが取れない。
 
 logger = logging.getLogger(__name__)
+
+
+def _is_safe_path_component(component: str, allow_empty: bool = False) -> bool:
+    """True if the client-supplied path piece stays inside its base directory."""
+    if component == "":
+        return allow_empty
+    if os.path.isabs(component):
+        return False
+    parts = component.replace("\\", "/").split("/")
+    return ".." not in parts
 
 
 class VoiceChangerManager(ServerAudioCallbacks):
@@ -67,6 +79,12 @@ class VoiceChangerManager(ServerAudioCallbacks):
 
         self.vc = VoiceChangerV2(self.settings)
         self.server_audio = ServerAudio(self, self.settings)
+
+        # Single worker so chunks are converted strictly in order. Keeps the
+        # heavy torch/onnx work off the asyncio event loop, which otherwise
+        # stalls websocket parsing, REST endpoints and engine.io heartbeats
+        # for the whole duration of every inference.
+        self._inference_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="vc-inference")
 
         logger.info("Initialized.")
 
@@ -111,6 +129,10 @@ class VoiceChangerManager(ServerAudioCallbacks):
 
         for file in params.files:
             logger.info(f"FILE: {file}")
+            # file.dir/file.name come from client JSON; keep them inside the
+            # upload and model directories (no absolute paths or "..").
+            if not _is_safe_path_component(file.dir, allow_empty=True) or not _is_safe_path_component(file.name):
+                raise ValueError(f"Invalid file path in load_model request: dir={file.dir!r} name={file.name!r}")
             srcPath = os.path.join(UPLOAD_DIR, file.dir, file.name)
             dstDir = os.path.join(
                 self.params.model_dir,
@@ -125,7 +147,9 @@ class VoiceChangerManager(ServerAudioCallbacks):
 
         # メタデータ作成(各VCで定義)
         if params.voiceChangerType == "RVC":
-            slotInfo = RVCModelSlotGenerator.load_model(params)
+            # torch.load / safetensors conversion is seconds of blocking work;
+            # keep it off the event loop so live audio streaming isn't frozen.
+            slotInfo = await asyncio.get_running_loop().run_in_executor(None, RVCModelSlotGenerator.load_model, params)
             self.modelSlotManager.save_model_slot(params.slot, slotInfo)
 
         logger.info(f"params, {params}")
@@ -202,13 +226,15 @@ class VoiceChangerManager(ServerAudioCallbacks):
             'protect': slotInfo.defaultProtect
         })
 
-        if slotInfo.voiceChangerType == self.vc.get_type():
-            self.vc.set_slot_info(slotInfo)
-        elif slotInfo.voiceChangerType == "RVC":
-            logger.info("Loading RVC...")
-            self.vc.initialize(RVCr2(slotInfo, self.settings))
-        else:
-            logger.error(f"Unknown voice changer model: {slotInfo.voiceChangerType}")
+        # Hold the inference lock so a model swap can't race an in-flight chunk.
+        with self.device_manager.lock:
+            if slotInfo.voiceChangerType == self.vc.get_type():
+                self.vc.set_slot_info(slotInfo)
+            elif slotInfo.voiceChangerType == "RVC":
+                logger.info("Loading RVC...")
+                self.vc.initialize(RVCr2(slotInfo, self.settings))
+            else:
+                logger.error(f"Unknown voice changer model: {slotInfo.voiceChangerType}")
 
     def update_settings(self, key: str, val: Any):
         logger.info(f"update configuration {key}: {val}")
@@ -251,7 +277,10 @@ class VoiceChangerManager(ServerAudioCallbacks):
             self.update_settings('outputSampleRate', self.settings.serverAudioSampleRate)
 
         self.server_audio.update_settings(key, val, old_value)
-        self.vc.update_settings(key, val, old_value)
+        # Buffer reallocations (chunk size, crossfade, extra) must not race an
+        # in-flight inference; take the same lock change_voice() holds.
+        with self.device_manager.lock:
+            self.vc.update_settings(key, val, old_value)
 
         return self.get_info()
 
@@ -276,6 +305,12 @@ class VoiceChangerManager(ServerAudioCallbacks):
             logger.exception(e)
             return np.zeros(1, dtype=np.float32), 0, [0, 0, 0], ('Exception', format_exc())
 
+    async def change_voice_async(self, receivedData: AudioInOutFloat):
+        """Run conversion on the dedicated inference thread so the event loop
+        stays responsive while torch/onnx crunches the chunk."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._inference_executor, self.change_voice, receivedData)
+
     def export2onnx(self):
         return self.vc.export2onnx()
 
@@ -287,7 +322,9 @@ class VoiceChangerManager(ServerAudioCallbacks):
         # Slots range is 0-499
         slot = len(self.modelSlotManager.getAllSlotInfo()) - 1
         if req.voiceChangerType == "RVC":
-            RVCModelMerger.merge_models(self.params, req, slot)
+            # Merging loads N checkpoints and saves the result - too heavy for
+            # the event loop.
+            await asyncio.get_running_loop().run_in_executor(None, RVCModelMerger.merge_models, self.params, req, slot)
         return self.get_info()
 
     def setEmitTo(self, emitTo: Callable[[Any], None]):
@@ -301,8 +338,9 @@ class VoiceChangerManager(ServerAudioCallbacks):
         return self.get_info()
 
     def update_model_info(self, newData: str):
-        # self.vc.update_model_info(newData)
-        self.modelSlotManager.update_model_info(newData)
+        # The client sends {"slot": int, "key": str, "val": ...} as JSON.
+        data = json.loads(newData)
+        self.modelSlotManager.update_model_info(int(data["slot"]), data["key"], data["val"])
         return self.get_info()
 
     def upload_model_assets(self, params: str):

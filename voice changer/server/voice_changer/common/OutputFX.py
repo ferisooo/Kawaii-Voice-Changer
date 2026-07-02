@@ -160,9 +160,13 @@ class OutputFX:
         env_db = 20.0 * np.log10(env)
         threshold_db = -24.0
         ratio = 3.0
-        makeup_db = amount / 100.0 * 12.0
+        # Amount scales both the downward compression and the makeup gain;
+        # previously any non-zero amount applied the full 3:1 ratio and the
+        # slider only changed makeup, so "5" squashed as hard as "100".
+        strength = min(max(amount, 0.0), 100.0) / 100.0
+        makeup_db = strength * 12.0
         over = np.maximum(env_db - threshold_db, 0.0)
-        gain_db = -over * (1.0 - 1.0 / ratio) + makeup_db
+        gain_db = -over * (1.0 - 1.0 / ratio) * strength + makeup_db
         gain = np.power(10.0, gain_db / 20.0)
         y = (x * gain.astype(np.float32)).astype(np.float32)
         np.clip(y, -0.99, 0.99, out=y)

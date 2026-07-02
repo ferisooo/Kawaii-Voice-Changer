@@ -81,9 +81,8 @@ async def downloadWeight(params: ServerSettings):
     fail = False
     for i, res in enumerate(await asyncio.gather(*tasks, return_exceptions=True)):
         if isinstance(res, Exception):
-            logger.error(f'Failed to download or verify {files_to_download[i]["saveTo"]}')
+            logger.error(f'Failed to download or verify {files_to_download[i]["saveTo"]}', exc_info=res)
             fail = True
-            logger.exception(res)
     if fail:
         raise PretrainDownloadException()
 

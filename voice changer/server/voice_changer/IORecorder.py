@@ -39,14 +39,14 @@ class IORecorder:
         logger.info(f"-------------------------- - - - {STREAM_INPUT_FILE}, {STREAM_OUTPUT_FILE}")
 
     def write_input(self, wav):
-        if self.fi is None:
-            raise Exception('IO recorder is closed.')
-        self.fi.writeframes(wav)
+        # Tolerate the brief window where recordIO was just toggled but the
+        # audio thread still has a chunk in flight.
+        if self.fi is not None:
+            self.fi.writeframes(wav)
 
     def write_output(self, wav):
-        if self.fo is None:
-            raise Exception('IO recorder is closed.')
-        self.fo.writeframes(wav)
+        if self.fo is not None:
+            self.fo.writeframes(wav)
 
     def close(self):
         if self.fi is not None:

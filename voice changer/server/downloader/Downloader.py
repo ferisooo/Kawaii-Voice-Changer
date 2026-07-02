@@ -57,9 +57,13 @@ async def download(params: dict):
 
     res = await s.head(url, allow_redirects=True)
     res.raise_for_status()
-    content_length = int(res.headers.get("content-length"))
-    if offset is not None and offset == content_length:
+    # Header may be absent (chunked responses); 0 disables resume logic.
+    content_length = int(res.headers.get("content-length") or 0)
+    if offset is not None and content_length > 0 and offset == content_length:
         if expected_hash is not None and hash != expected_hash:
+            # Drop the corrupted file so the next launch re-downloads it
+            # instead of failing on the same bad file forever.
+            os.remove(saveTo)
             raise DownloadVerificationException(saveTo, hash, expected_hash)
         # Hash will not be written here if file is absent or incomplete
         write_file_entry(saveTo, hash)
@@ -75,7 +79,7 @@ async def download(params: dict):
         hasher.reset()
         res = await s.get(url, allow_redirects=True)
     res.raise_for_status()
-    content_length = int(res.headers.get("content-length"))
+    content_length = int(res.headers.get("content-length") or 0) or None
     progress_bar = tqdm(
         total=content_length,
         leave=False,
@@ -96,6 +100,9 @@ async def download(params: dict):
     # Get final hash (local chunks + remote chunks)
     hash = hasher.hexdigest()
     if expected_hash is not None and hash != expected_hash:
+        # Remove the bad file: keeping it would brick every subsequent
+        # startup until the user deletes it manually.
+        os.remove(saveTo)
         raise DownloadVerificationException(saveTo, hash, expected_hash)
 
     if expected_hash is not None:

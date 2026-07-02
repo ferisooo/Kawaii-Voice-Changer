@@ -15,7 +15,7 @@ class TrustedOriginMiddleware:
     ) -> None:
         self.allowed_origins: set[str] = set()
 
-        self.any_origin = '*' in allowed_origins
+        self.any_origin = allowed_origins is not None and '*' in allowed_origins
         if not self.any_origin:
             local_origins = compute_local_origins(port)
             self.allowed_origins.update(local_origins)

@@ -165,22 +165,31 @@ class ServerAudio:
         serverOutputAudioDevice = self.getServerOutputAudioDevice(self.settings.serverOutputDeviceId)
         serverMonitorAudioDevice = self.getServerOutputAudioDevice(self.settings.serverMonitorDeviceId)
 
+        # Deviceがなかったらいったんスリープ
+        # Must be checked before dereferencing the devices below, otherwise an
+        # unset/unplugged device raises AttributeError and the UI never gets
+        # the error event.
+        if serverInputAudioDevice is None or serverOutputAudioDevice is None:
+            logger.error("Input or output device is not selected.")
+            self.callbacks.emit_to(0, self.performance, ('ERR_GENERIC_SERVER_AUDIO_ERROR', ERR_GENERIC_SERVER_AUDIO_ERROR))
+            return
+
         # Generate ExtraSetting
         wasapiExclusiveMode = bool(self.settings.exclusiveMode)
 
         inputChannels = serverInputAudioDevice.maxInputChannels
         inputExtraSetting = None
-        if serverInputAudioDevice and "WASAPI" in serverInputAudioDevice.hostAPI:
+        if "WASAPI" in serverInputAudioDevice.hostAPI:
             inputExtraSetting = sd.WasapiSettings(exclusive=wasapiExclusiveMode, auto_convert=not wasapiExclusiveMode)
-        elif serverInputAudioDevice and "ASIO" in serverInputAudioDevice.hostAPI and self.settings.asioInputChannel != -1:
+        elif "ASIO" in serverInputAudioDevice.hostAPI and self.settings.asioInputChannel != -1:
             inputExtraSetting = sd.AsioSettings(channel_selectors=[self.settings.asioInputChannel])
             inputChannels = 1
 
         outputChannels = serverOutputAudioDevice.maxOutputChannels
         outputExtraSetting = None
-        if serverOutputAudioDevice and "WASAPI" in serverOutputAudioDevice.hostAPI:
+        if "WASAPI" in serverOutputAudioDevice.hostAPI:
             outputExtraSetting = sd.WasapiSettings(exclusive=wasapiExclusiveMode, auto_convert=not wasapiExclusiveMode)
-        elif serverInputAudioDevice and "ASIO" in serverInputAudioDevice.hostAPI and self.settings.asioOutputChannel != -1:
+        elif "ASIO" in serverOutputAudioDevice.hostAPI and self.settings.asioOutputChannel != -1:
             outputExtraSetting = sd.AsioSettings(channel_selectors=[self.settings.asioOutputChannel])
             outputChannels = 1
 
@@ -192,12 +201,6 @@ class ServerAudio:
         logger.info(f"  [Input]: {serverInputAudioDevice} {inputExtraSetting}")
         logger.info(f"  [Output]: {serverOutputAudioDevice}, {outputExtraSetting}")
         logger.info(f"  [Monitor]: {serverMonitorAudioDevice}, {monitorExtraSetting}")
-
-        # Deviceがなかったらいったんスリープ
-        if serverInputAudioDevice is None or serverOutputAudioDevice is None:
-            logger.error("Input or output device is not selected.")
-            self.callbacks.emit_to(0, self.performance, ('ERR_GENERIC_SERVER_AUDIO_ERROR', ERR_GENERIC_SERVER_AUDIO_ERROR))
-            return
 
         # サンプリングレート
         # 同一サンプリングレートに統一（変換時にサンプルが不足する場合があるため。パディング方法が明らかになれば、それぞれ設定できるかも）

@@ -475,11 +475,18 @@ class RVCr2(VoiceChangerModel):
         if self.is_half:
             audio_in_t = audio_in_t.half()
 
-        audio_in_16k = tat.Resample(
-            orig_freq=sample_rate,
-            new_freq=HUBERT_SAMPLE_RATE,
-            dtype=self.dtype
-        ).to(self.device_manager.device)(audio_in_t)
+        # Cache per input sample rate: building a Resample (kernel design +
+        # device transfer) on every call is wasteful for batch conversions.
+        key = (sample_rate, self.dtype)
+        if not hasattr(self, "_file_resamplers"):
+            self._file_resamplers = {}
+        if key not in self._file_resamplers:
+            self._file_resamplers[key] = tat.Resample(
+                orig_freq=sample_rate,
+                new_freq=HUBERT_SAMPLE_RATE,
+                dtype=self.dtype
+            ).to(self.device_manager.device)
+        audio_in_16k = self._file_resamplers[key](audio_in_t)
 
         # Feature size must be derived from the 16kHz audio actually fed to the
         # pipeline, not the pre-resample input (those differ when sample_rate

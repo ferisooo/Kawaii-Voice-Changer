@@ -34,6 +34,7 @@ class MMVC_Rest_Fileuploader:
             return JSONResponse(content=json_compatible_item_data)
         except Exception as e:
             logger.exception(e)
+            return JSONResponse(status_code=500, content={"error": type(e).__name__, "message": str(e)})
 
     def get_info(self):
         try:
@@ -42,6 +43,7 @@ class MMVC_Rest_Fileuploader:
             return JSONResponse(content=json_compatible_item_data)
         except Exception as e:
             logger.exception(e)
+            return JSONResponse(status_code=500, content={"error": type(e).__name__, "message": str(e)})
 
     def post_update_settings(self, key: str = Form(...), val: Union[int, str, float] = Form(...)):
         try:
@@ -50,6 +52,7 @@ class MMVC_Rest_Fileuploader:
             return JSONResponse(content=json_compatible_item_data)
         except Exception as e:
             logger.exception(e)
+            return JSONResponse(status_code=500, content={"error": type(e).__name__, "message": str(e)})
 
     async def post_load_model(
         self,
@@ -59,7 +62,7 @@ class MMVC_Rest_Fileuploader:
     ):
         try:
             paramDict = json.loads(params)
-            logger.info(f"paramDict", paramDict)
+            logger.info(f"paramDict: {paramDict}")
             loadModelparams = LoadModelParams(**paramDict)
             loadModelparams.files = [LoadModelParamFile(**x) for x in paramDict["files"]]
             # logger.info(f"paramDict", loadModelparams)
@@ -69,6 +72,7 @@ class MMVC_Rest_Fileuploader:
             return JSONResponse(content=json_compatible_item_data)
         except Exception as e:
             logger.exception(e)
+            return JSONResponse(status_code=500, content={"error": type(e).__name__, "message": str(e)})
 
     def get_onnx(self):
         try:
@@ -77,6 +81,7 @@ class MMVC_Rest_Fileuploader:
             return JSONResponse(content=json_compatible_item_data)
         except Exception as e:
             logger.exception(e)
+            return JSONResponse(status_code=500, content={"error": type(e).__name__, "message": str(e)})
 
     async def post_merge_models(self, request: str = Form(...)):
         try:
@@ -86,6 +91,7 @@ class MMVC_Rest_Fileuploader:
             return JSONResponse(content=json_compatible_item_data)
         except Exception as e:
             logger.exception(e)
+            return JSONResponse(status_code=500, content={"error": type(e).__name__, "message": str(e)})
 
     def post_update_model_default(self):
         try:
@@ -94,6 +100,7 @@ class MMVC_Rest_Fileuploader:
             return JSONResponse(content=json_compatible_item_data)
         except Exception as e:
             logger.exception(e)
+            return JSONResponse(status_code=500, content={"error": type(e).__name__, "message": str(e)})
 
     def post_update_model_info(self, newData: str = Form(...)):
         try:
@@ -102,6 +109,7 @@ class MMVC_Rest_Fileuploader:
             return JSONResponse(content=json_compatible_item_data)
         except Exception as e:
             logger.exception(e)
+            return JSONResponse(status_code=500, content={"error": type(e).__name__, "message": str(e)})
 
     def post_upload_model_assets(self, params: str = Form(...)):
         try:
@@ -110,3 +118,4 @@ class MMVC_Rest_Fileuploader:
             return JSONResponse(content=json_compatible_item_data)
         except Exception as e:
             logger.exception(e)
+            return JSONResponse(status_code=500, content={"error": type(e).__name__, "message": str(e)})

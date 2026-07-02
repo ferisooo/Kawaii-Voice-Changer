@@ -51,18 +51,28 @@ class ModelSlotManager:
             setattr(slotInfo, key, val)
         self._save_model_slot(slot_index, slotInfo)
 
+    # Slot attributes a client is allowed to point at an uploaded asset.
+    STORABLE_ASSET_ATTRS = {"iconFile"}
+
     def store_model_assets(self, params: str):
         paramsDict = json.loads(params)
-        uploadPath = os.path.join(UPLOAD_DIR, paramsDict["file"])
-        storeDir = os.path.join(self.model_dir, str(paramsDict["slot"]))
+        # Both values come from the client: keep the file inside the slot
+        # directory and only allow known asset attributes to be set.
+        filename = os.path.basename(str(paramsDict["file"]))
+        name = str(paramsDict["name"])
+        if not filename or name not in self.STORABLE_ASSET_ATTRS:
+            logger.error(f"Rejected asset upload: file={paramsDict['file']!r} name={name!r}")
+            return
+        uploadPath = os.path.join(UPLOAD_DIR, filename)
+        storeDir = os.path.join(self.model_dir, str(int(paramsDict["slot"])))
         storePath = os.path.join(
             storeDir,
-            paramsDict["file"],
+            filename,
         )
         try:
             shutil.move(uploadPath, storePath)
-            slotInfo = self._load_model_slot(paramsDict["slot"])
-            setattr(slotInfo, paramsDict["name"], storePath)
-            self._save_model_slot(paramsDict["slot"], slotInfo)
+            slotInfo = self._load_model_slot(int(paramsDict["slot"]))
+            setattr(slotInfo, name, storePath)
+            self._save_model_slot(int(paramsDict["slot"]), slotInfo)
         except Exception as e:
             logger.exception(e)

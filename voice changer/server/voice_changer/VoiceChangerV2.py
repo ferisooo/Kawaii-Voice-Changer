@@ -110,6 +110,13 @@ class VoiceChangerV2:
         elif key == 'crossFadeOverlapSize':
             self.crossfade_frame = int(val * self.settings.inputSampleRate)
             self._generate_strength()
+        elif key == 'recordIO':
+            # Reopen for a fresh capture on enable; close on disable so the
+            # files are flushed and released for download/other apps.
+            if val:
+                self.io_recorder.open(self.settings.inputSampleRate, self.settings.outputSampleRate)
+            else:
+                self.io_recorder.close()
         elif key == 'autoSmooth':
             if val:
                 # (Re)arm; baseline is captured on the first processed chunk.
@@ -144,6 +151,10 @@ class VoiceChangerV2:
         )
         self.fade_out_window: torch.Tensor = 1 - self.fade_in_window
 
+        # Constant kernel for the SOLA correlation denominator; allocating it
+        # per chunk in process_audio() wastes time in the realtime path.
+        self.sola_kernel = torch.ones(1, 1, self.crossfade_frame, device=self.device_manager.device, dtype=torch.float32)
+
         # ひとつ前の結果とサイズが変わるため、記録は消去する。
         self.sola_buffer = torch.zeros(self.crossfade_frame, device=self.device_manager.device, dtype=torch.float32)
         logger.info(f'Allocated SOLA buffer size: {self.crossfade_frame}')
@@ -170,7 +181,7 @@ class VoiceChangerV2:
         cor_den = torch.sqrt(
             F.conv1d(
                 conv_input ** 2,
-                torch.ones(1, 1, self.crossfade_frame, device=self.device_manager.device),
+                self.sola_kernel,
             )
             + 1e-8
         )
@@ -185,6 +196,16 @@ class VoiceChangerV2:
         self.sola_buffer[:] = audio[block_size : block_size + self.crossfade_frame]
 
         out = audio[: block_size].detach().cpu().numpy()
+
+        # A single NaN/Inf chunk (e.g. an fp16 overflow in the model) would
+        # otherwise permanently poison the SOLA crossfade buffer: every later
+        # chunk is blended with NaNs and the output stays silent until a
+        # restart. Detect it on the CPU copy (cheap), reset the crossfade
+        # state and hand back silence for this one block instead.
+        if not np.isfinite(out).all():
+            logger.warning("Non-finite audio chunk detected; resetting SOLA buffer.")
+            self.sola_buffer.zero_()
+            return np.zeros(block_size, dtype=np.float32), vol
 
         # Optional output DSP (de-esser + equalizer + compressor). Isolated:
         # passes through unchanged on any error. All off by default.
